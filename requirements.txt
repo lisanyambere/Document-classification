@@ -10,4 +10,5 @@ joblib
 langchain
 langchain-community
 requests
-python-dotenv 
+python-dotenv
+lightgbm 

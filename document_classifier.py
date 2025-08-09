@@ -20,6 +20,19 @@ import joblib
 import os
 from tqdm import tqdm
 import warnings
+import time
+from typing import List, Tuple, Dict, Any
+
+from base_classifier import (
+    DocumentClassifier as BaseDocumentClassifier, 
+    ClassificationResult, 
+    DocumentMetadata, 
+    DocumentCategory,
+    create_classification_result,
+    ClassifierNotReadyError,
+    InvalidDocumentError
+)
+
 warnings.filterwarnings('ignore')
 
 
@@ -38,13 +51,21 @@ try:
 except LookupError:
     nltk.download('wordnet')
 
-class DocumentClassifier:
+class MLDocumentClassifier(BaseDocumentClassifier):
     def __init__(self):
         self.label_encoder = LabelEncoder()
         self.vectorizer = None
         self.models = {}
         self.best_model = None
         self.best_model_name = None
+        self.feature_columns = []
+        
+        # Performance tracking
+        self.prediction_history = []
+        self.is_trained = False
+        
+        # Try to load saved models
+        self.load_models()
         
         # RVL-CDIP document categories 
         self.document_categories = {
@@ -171,9 +192,9 @@ class DocumentClassifier:
             try:
                 model.fit(X_train, y_train)
                 self.models[name] = model
-                print(f"✓ {name} trained successfully")
+                print(f"{name} trained successfully")
             except Exception as e:
-                print(f"✗ {name} failed: {str(e)}")
+                print(f"{name} failed: {str(e)}")
     
     def evaluate_models(self, X_test, y_test):
         """Evaluate all trained models"""        
@@ -190,6 +211,7 @@ class DocumentClassifier:
         # Find best model
         self.best_model_name = max(results, key=results.get)
         self.best_model = self.models[self.best_model_name]
+        self.is_trained = True
         
         print(f"\nBest model: {self.best_model_name} (Accuracy: {results[self.best_model_name]:.4f})")
         
@@ -239,8 +261,146 @@ class DocumentClassifier:
         
         print(f"Models saved to {output_dir}/")
     
+    def load_models(self, model_dir='models'):
+        """Load saved models"""
+        try:
+            if os.path.exists(os.path.join(model_dir, 'best_model.pkl')):
+                self.best_model = joblib.load(os.path.join(model_dir, 'best_model.pkl'))
+                self.vectorizer = joblib.load(os.path.join(model_dir, 'vectorizer.pkl'))
+                self.label_encoder = joblib.load(os.path.join(model_dir, 'label_encoder.pkl'))
+                self.is_trained = True
+                print(f"Loaded trained models from {model_dir}/")
+            else:
+                print(f"No saved models found in {model_dir}/")
+        except Exception as e:
+            print(f"Failed to load models: {e}")
+    
     def predict(self, filenames):
         """Predict categories for new filenames"""
+        if self.best_model is None:
+            raise ValueError("No trained model available. Please train the model first.")
+        
+        # Extract features
+        features_df = self.extract_features(filenames)
+        
+        # Create text features using the fitted vectorizer
+        text_features = self.vectorizer.transform(features_df['processed_text'])
+        
+        # Convert to DataFrame
+        text_features_df = pd.DataFrame(
+            text_features.toarray(),
+            columns=[f'tfidf_{i}' for i in range(text_features.shape[1])]
+        )
+        
+        # Combine features
+        X = pd.concat([features_df.drop('processed_text', axis=1), text_features_df], axis=1)
+        
+        # Make predictions
+        predictions = self.best_model.predict(X)
+        predicted_labels = self.label_encoder.inverse_transform(predictions)
+        
+        return predicted_labels
+    
+    # Interface methods for BaseDocumentClassifier
+    def predict(self, content: str, metadata: DocumentMetadata = None) -> ClassificationResult:
+        """Predict document category using the new interface"""
+        start_time = time.time()
+        
+        if not self.is_ready():
+            raise ClassifierNotReadyError("ML classifier not trained")
+        
+        if not content or not content.strip():
+            raise InvalidDocumentError("Empty document content")
+        
+        try:
+            # For ML classifier, we treat content as filename for now
+            # TODO: This should be adapted for actual document content
+            filenames = [content]
+            
+            # Extract features
+            features_df = self.extract_features(filenames)
+            
+            # Create text features using the fitted vectorizer
+            text_features = self.vectorizer.transform(features_df['processed_text'])
+            
+            # Convert to DataFrame
+            text_features_df = pd.DataFrame(
+                text_features.toarray(),
+                columns=[f'tfidf_{i}' for i in range(text_features.shape[1])]
+            )
+            
+            # Combine features
+            X = pd.concat([features_df.drop('processed_text', axis=1), text_features_df], axis=1)
+            
+            # Make predictions with probability
+            predictions = self.best_model.predict(X)
+            probabilities = self.best_model.predict_proba(X)
+            
+            predicted_label = self.label_encoder.inverse_transform(predictions)[0]
+            confidence = float(np.max(probabilities[0]))
+            
+            # Create features dict for tracking
+            features_used = features_df.iloc[0].to_dict()
+            
+            result = create_classification_result(
+                category=predicted_label,
+                confidence=confidence,
+                classifier_type=self.classifier_type,
+                start_time=start_time,
+                reasoning=f"ML prediction using {self.best_model_name}",
+                features_used=features_used,
+                cost_estimate=0.001  # Minimal cost for ML
+            )
+            
+            # Track prediction
+            self.prediction_history.append({
+                'timestamp': time.time(),
+                'result': result,
+                'content_length': len(content)
+            })
+            
+            return result
+            
+        except Exception as e:
+            raise ClassificationTimeout(f"ML classification failed: {str(e)}")
+    
+    def predict_batch(self, documents: List[Tuple[str, DocumentMetadata]]) -> List[ClassificationResult]:
+        """Predict multiple documents efficiently"""
+        return [self.predict(content, metadata) for content, metadata in documents]
+    
+    def get_performance_metrics(self) -> Dict[str, float]:
+        """Get current performance statistics"""
+        if not self.prediction_history:
+            return {}
+        
+        recent_predictions = self.prediction_history[-100:]  # Last 100
+        
+        avg_confidence = np.mean([p['result'].confidence for p in recent_predictions])
+        avg_processing_time = np.mean([p['result'].processing_time_ms for p in recent_predictions])
+        total_predictions = len(self.prediction_history)
+        
+        return {
+            'avg_confidence': avg_confidence,
+            'avg_processing_time_ms': avg_processing_time,
+            'total_predictions': total_predictions,
+            'model_name': self.best_model_name or 'none'
+        }
+    
+    def is_ready(self) -> bool:
+        """Check if classifier is ready to make predictions"""
+        return (self.best_model is not None and 
+                self.vectorizer is not None and 
+                self.label_encoder is not None and
+                self.is_trained)
+    
+    @property
+    def classifier_type(self) -> str:
+        """Return classifier type identifier"""
+        return "ML"
+    
+    # Legacy method for backwards compatibility
+    def predict_filenames(self, filenames):
+        """Legacy method - predict categories for filenames"""
         if self.best_model is None:
             raise ValueError("No trained model available. Please train the model first.")
         
@@ -303,7 +463,7 @@ class DocumentClassifier:
 def main():
     """Main execution function"""
     # Initialize classifier
-    classifier = DocumentClassifier()
+    classifier = MLDocumentClassifier()
     
     # Prepare data
     data_path = "business_documents_dataset_cleaned.csv"
@@ -359,7 +519,7 @@ def main():
         "financial_report_q4_2024.xlsx"
     ]
     
-    predictions = classifier.predict(test_filenames)
+    predictions = classifier.predict_filenames(test_filenames)
     print("\nExample predictions:")
     for filename, pred in zip(test_filenames, predictions):
         print(f"{filename} -> {pred}")

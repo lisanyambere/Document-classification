@@ -1,7 +1,7 @@
 import os
 import time
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -13,6 +13,17 @@ from langchain.schema import BaseOutputParser
 import requests
 import json
 from dotenv import load_dotenv
+
+from base_classifier import (
+    DocumentClassifier as BaseDocumentClassifier,
+    ClassificationResult,
+    DocumentMetadata,
+    DocumentCategory,
+    create_classification_result,
+    ClassifierNotReadyError,
+    InvalidDocumentError,
+    ClassificationTimeout
+)
 
 # Load environment variables
 load_dotenv()
@@ -83,6 +94,32 @@ class GroqAPI(LLM):
     @property
     def _llm_type(self) -> str:
         return "groq"
+    
+    def quick_completion(self, prompt: str, max_tokens: int = 150) -> str:
+        """Quick completion call optimized for routing decisions"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0.1,
+            }
+            
+            response = requests.post(f"{self.base_url}/chat/completions", 
+                                   json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
+            
+        except Exception as e:
+            logger.error(f"Quick completion failed: {e}")
+            return "ROUTE: ML"
     
     def _call(
         self,
@@ -174,7 +211,7 @@ class DocumentCategoryParser(BaseOutputParser):
                 'reasoning': f"Parsing error: {str(e)}"
             }
 
-class LLMDocumentClassifier:
+class LLMDocumentClassifier(BaseDocumentClassifier):
     """LLM-based document classifier using Groq API"""
     
     def __init__(self, api_key: str = None, model_name: str = None):
@@ -302,15 +339,14 @@ Response format:
                 category = DocumentCategory.LETTER
                 logger.warning(f"Unknown category '{parsed_result['category']}', defaulting to LETTER")
             
-            # Calculate processing time
-            processing_time_ms = (time.time() - start_time) * 1000
-            
-            # Create result
-            result = ClassificationResult(
-                category=category,
+            # Create result using factory function
+            result = create_classification_result(
+                category=parsed_result['category'],
                 confidence=parsed_result['confidence'],
+                classifier_type=self.classifier_type,
+                start_time=start_time,
                 reasoning=parsed_result['reasoning'],
-                processing_time_ms=processing_time_ms
+                cost_estimate=0.01  # Estimated LLM cost
             )
             
             # Track classification
@@ -318,7 +354,7 @@ Response format:
                 'timestamp': time.time(),
                 'category': category.value,
                 'confidence': result.confidence,
-                'processing_time_ms': processing_time_ms,
+                'processing_time_ms': result.processing_time_ms,
                 'original_length': original_length,
                 'sample_length': sample_length
             })
@@ -375,6 +411,63 @@ Response format:
         import pickle
         with open(filepath, 'rb') as f:
             self.classification_history = pickle.load(f)
+    
+    # Interface methods for BaseDocumentClassifier
+    def predict(self, content: str, metadata: DocumentMetadata = None) -> ClassificationResult:
+        """Predict document category using the new interface"""
+        if not self.is_ready():
+            raise ClassifierNotReadyError("LLM classifier not configured properly")
+        
+        if not content or not content.strip():
+            raise InvalidDocumentError("Empty document content")
+        
+        # Convert metadata to dict if provided
+        metadata_dict = metadata.to_dict() if metadata else None
+        
+        # Use existing classify_document method
+        return self.classify_document(content, metadata_dict)
+    
+    def predict_batch(self, documents: List[Tuple[str, DocumentMetadata]]) -> List[ClassificationResult]:
+        """Predict multiple documents efficiently"""
+        return [self.predict(content, metadata) for content, metadata in documents]
+    
+    def get_performance_metrics(self) -> Dict[str, float]:
+        """Get current performance statistics"""
+        stats = self.get_performance_stats()
+        
+        # Convert to match interface
+        return {
+            'avg_confidence': stats.get('avg_confidence', 0.0),
+            'avg_processing_time_ms': stats.get('avg_processing_time_ms', 0.0),
+            'total_predictions': stats.get('total_classifications', 0),
+            'model_name': stats.get('config', {}).get('model_name', 'unknown')
+        }
+    
+    def is_ready(self) -> bool:
+        """Check if classifier is ready to make predictions"""
+        return (self.api_key is not None and 
+                self.model_name is not None and
+                self.llm is not None)
+    
+    @property
+    def classifier_type(self) -> str:
+        """Return classifier type identifier"""
+        return "LLM"
+    
+    def _quick_routing_decision(self, routing_prompt: str, metadata: DocumentMetadata) -> str:
+        """Quick LLM call for routing decisions (optimized for speed)"""
+        try:
+            # Use a shorter, faster prompt for routing
+            response = self.llm.quick_completion(routing_prompt, max_tokens=150)
+            return response.strip()
+        except Exception as e:
+            logger.error(f"Quick routing decision failed: {e}")
+            return "ROUTE: ML"  # Conservative fallback
+    
+    # Legacy method for backwards compatibility
+    def classify_document_legacy(self, document_content: str, metadata: Dict[str, Any] = None) -> ClassificationResult:
+        """Legacy method - use classify_document instead"""
+        return self.classify_document(document_content, metadata)
 
 # Example usage and testing
 if __name__ == "__main__":
