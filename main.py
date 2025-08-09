@@ -13,6 +13,13 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import json
 
+# Setup logging 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:%(name)s: %(message)s'
+)
+
 # Document processing
 try:
     import PyPDF2
@@ -26,7 +33,6 @@ try:
 except ImportError:
     HAS_DOCX = False
 
-# Core system
 from document_classifier import MLDocumentClassifier
 from llm_classifier import LLMDocumentClassifier
 from agent import SupervisoryAgent
@@ -34,7 +40,6 @@ from base_classifier import DocumentMetadata, ClassificationResult
 
 
 class DocumentExtractor:
-    """Extracts content and metadata from various document formats"""
     
     def __init__(self):
         self.supported_formats = {'.txt', '.pdf', '.docx', '.doc', '.md'}
@@ -43,16 +48,8 @@ class DocumentExtractor:
         if not HAS_DOCX:
             print("Warning: python-docx not installed. DOCX support disabled.")
     
+    # Extract content and metadata from document file
     def extract_document(self, file_path: str) -> tuple[str, DocumentMetadata]:
-        """
-        Extract content and metadata from document
-        
-        Args:
-            file_path: Path to document file
-            
-        Returns:
-            Tuple of (content, metadata)
-        """
         file_path = Path(file_path)
         
         if not file_path.exists():
@@ -79,8 +76,8 @@ class DocumentExtractor:
         
         return content, metadata
     
+    # Extract file metadata
     def _extract_metadata(self, file_path: Path) -> DocumentMetadata:
-        """Extract file metadata"""
         stat = file_path.stat()
         
         # Try to detect MIME type
@@ -92,8 +89,8 @@ class DocumentExtractor:
             sender_email=None  # Can't extract from file system
         )
     
+    # Extract text from PDF
     def _extract_pdf(self, file_path: Path) -> str:
-        """Extract text from PDF"""
         if not HAS_PDF:
             raise ImportError("PyPDF2 required for PDF processing. Install: pip install PyPDF2")
         
@@ -109,8 +106,8 @@ class DocumentExtractor:
         except Exception as e:
             raise ValueError(f"Failed to extract PDF content: {e}")
     
+    # Extract text from DOCX
     def _extract_docx(self, file_path: Path) -> str:
-        """Extract text from DOCX"""
         if not HAS_DOCX:
             raise ImportError("python-docx required for DOCX processing. Install: pip install python-docx")
         
@@ -125,8 +122,8 @@ class DocumentExtractor:
         except Exception as e:
             raise ValueError(f"Failed to extract DOCX content: {e}")
     
+    # Extract text from plain text file
     def _extract_text(self, file_path: Path) -> str:
-        """Extract text from plain text file"""
         try:
             # Try different encodings
             for encoding in ['utf-8', 'latin-1', 'cp1252']:
@@ -142,10 +139,9 @@ class DocumentExtractor:
 
 
 class DocumentClassificationInterface:
-    """Main interface for document classification"""
     
+    # Initialize the classification system
     def __init__(self):
-        """Initialize the classification system"""
         print("Initializing document classification system...")
         
         # Initialize extractors and classifiers
@@ -176,17 +172,8 @@ class DocumentClassificationInterface:
             self.agent = None
             print("Warning: Agent unavailable. Need both ML and LLM classifiers.")
     
+    # Classify a single document
     def classify_document(self, file_path: str, output_format: str = 'text') -> Dict[str, Any]:
-        """
-        Classify a single document
-        
-        Args:
-            file_path: Path to document
-            output_format: 'text', 'json', or 'detailed'
-            
-        Returns:
-            Classification result dictionary
-        """
         start_time = time.time()
         
         try:
@@ -229,12 +216,20 @@ class DocumentClassificationInterface:
             
             # Add detailed info if requested
             if output_format == 'detailed':
+                full_reasoning = getattr(result, 'reasoning', None)
                 classification_result.update({
                     'predicted_ml_confidence': predicted_confidence,
-                    'reasoning': getattr(result, 'reasoning', None),
+                    'reasoning': full_reasoning,
                     'content_preview': content[:200] + "..." if len(content) > 200 else content,
                     'metadata': metadata.to_dict() if hasattr(metadata, 'to_dict') else str(metadata)
                 })
+                
+                # Log full reasoning to console for visibility
+                if full_reasoning:
+                    print(f"FULL REASONING for {Path(file_path).name}:")
+                    print(f"Classifier: {routing_decision}")
+                    print(f"Reasoning: {full_reasoning}")
+                    print("-" * 60)
             
             return classification_result
             
@@ -245,17 +240,8 @@ class DocumentClassificationInterface:
                 'processing_time_ms': (time.time() - start_time) * 1000
             }
     
+    # Classify multiple documents
     def classify_batch(self, file_paths: List[str], output_format: str = 'text') -> List[Dict[str, Any]]:
-        """
-        Classify multiple documents
-        
-        Args:
-            file_paths: List of document paths
-            output_format: Output format for results
-            
-        Returns:
-            List of classification results
-        """
         print(f"Processing {len(file_paths)} documents...")
         
         results = []
@@ -276,8 +262,8 @@ class DocumentClassificationInterface:
         print(f"\nBatch complete: {successful}/{len(file_paths)} successful")
         return results
     
+    # Get system performance statistics
     def get_system_stats(self) -> Dict[str, Any]:
-        """Get system performance statistics"""
         if not self.agent:
             return {'error': 'Agent not available'}
         
@@ -294,8 +280,8 @@ class DocumentClassificationInterface:
         }
 
 
+# Print classification result
 def print_result(result: Dict[str, Any], output_format: str = 'text'):
-    """Print classification result"""
     if 'error' in result:
         print(f"ERROR processing {result['file_path']}: {result['error']}")
         return
@@ -312,15 +298,15 @@ def print_result(result: Dict[str, Any], output_format: str = 'text'):
         print(f"Processing time: {result['processing_time_ms']:.1f}ms")
         print(f"Content length: {result['content_length']} chars")
         if 'reasoning' in result and result['reasoning']:
-            print(f"Reasoning: {result['reasoning'][:100]}...")
+            print(f"Reasoning: {result['reasoning']}")
         if 'content_preview' in result:
             print(f"Preview: {result['content_preview']}")
     else:  # text
         print(f"{file_name} -> {result['category']} ({result['confidence']:.3f} via {result['classifier_used']})")
 
 
+# Main command line interface
 def main():
-    """Main command line interface"""
     parser = argparse.ArgumentParser(
         description='Enhanced Document Classification System',
         epilog='Examples:\n'
