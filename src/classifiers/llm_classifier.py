@@ -14,7 +14,7 @@ import requests
 import json
 from dotenv import load_dotenv
 
-from base_classifier import (
+from ..core.base_classifier import (
     DocumentClassifier as BaseDocumentClassifier,
     ClassificationResult,
     DocumentMetadata,

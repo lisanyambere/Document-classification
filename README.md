@@ -1,270 +1,299 @@
-# Business Document Classification System
+# Enhanced Document Classification System
 
-A comprehensive machine learning system for classifying business documents using traditional ML models based on filename analysis. This system is designed for enterprise data warehousing and retrieval applications.
+A hybrid document classification system combining traditional ML models with Large Language Models (LLMs) and intelligent routing for optimal performance and cost efficiency.
 
-## Overview
+## System Architecture
 
-This project implements a document classification system that can categorize documents into 15 meaningful categories based on business document analysis:
-- **Letter** - Business letters, correspondence
-- **Form** - Applications, registration forms, surveys
-- **Email** - Email communications, messages
-- **Handwritten** - Handwritten notes, manuscripts
-- **Advertisement** - Marketing materials, ads, promotions
-- **Scientific Report** - Research reports, study reports, analysis
-- **Scientific Publication** - Academic papers, journal articles, conference papers
-- **Specification** - Technical specifications, product specs
-- **File Folder** - Document folders, directories, organizers
-- **News Article** - News articles, press releases
-- **Budget** - Financial budgets, budget plans
-- **Invoice** - Billing documents, receipts, payment records
-- **Presentation** - Slides, decks, PowerPoint files
-- **Questionnaire** - Surveys, polls, feedback forms
-- **Resume** - CVs, job applications, curriculum vitae
-- **Memo** - Business memos, memorandums
+This system features a **modular architecture** with intelligent routing that automatically selects between ML (fast, cheap) and LLM (accurate, expensive) classifiers based on document complexity and confidence levels.
+
+### Key Components
+
+- **Hybrid Classification**: ML + LLM with intelligent routing
+- **Supervisory Agent**: Orchestrates classification decisions
+- **Adaptive Routing**: Learns optimal routing strategies over time
+- **Resilience Framework**: Error handling and retry mechanisms
+- **Performance Monitoring**: Real-time metrics and feedback collection
 
 ## Features
 
-- **Multiple Traditional ML Models**: Random Forest, Gradient Boosting, Logistic Regression, SVM, Naive Bayes
-- **Comprehensive Feature Engineering**: TF-IDF, document keyword detection, filename pattern analysis
-- **15 Document Categories**: Business document classification based on filename analysis
-- **Data Visualization**: Comprehensive charts and plots for analysis
-- **Easy Deployment**: Simple API for integration into existing systems
-- **Detailed Evaluation**: Comprehensive performance analysis and visualization
+- **Intelligent Routing**: Automatically chooses ML or LLM based on document characteristics
+- **Cost Optimization**: Balances accuracy vs. processing costs
+- **Real-time Learning**: Routing system improves with feedback
+- **Modular Design**: Clean separation of concerns
+- **Enterprise Ready**: Configuration management, logging, error handling
 
 ## Installation
 
-1. Clone the repository:
+1. **Clone repository**:
 ```bash
 git clone <repository-url>
-cd data-analysis
+cd Document-classification
 ```
 
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
+2. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+3. **Configure environment**:
+```bash
+cp env_template.txt .env
+# Edit .env with your GROQ_API_KEY and other settings
+```
 
-### 1. Data Preparation
+## Quick Start
 
-The project includes a pre-cleaned dataset with 15,000 samples across 15 document categories:
+### Single Document Classification
 
 ```bash
-# The dataset is already included: business_documents_dataset_cleaned.csv
-# Contains 15 document categories with 1000 samples each
+# Classify a single document
+python main.py sample_documents/invoice.txt
+
+# Detailed output with reasoning
+python main.py sample_documents/technical_spec.txt --format detailed
 ```
 
-### 2. Model Training
-
-Train the document classification models:
+### Batch Classification
 
 ```bash
-python document_classifier.py
+# Process multiple files
+python main.py sample_documents/*.txt --batch
+
+# Process directory with JSON output
+python main.py sample_documents/ --batch --format json --output results.json
 ```
 
-This will:
-- Extract features from filenames
-- Train multiple ML models
-- Evaluate performance
-- Save the best model
+## System Architecture
 
-### 3. Model Evaluation and Visualization
+```
+src/
+├── core/                   # Foundation & Infrastructure
+│   ├── base_classifier.py  # Base classes and interfaces
+│   ├── config_manager.py   # Configuration management
+│   └── resilience.py       # Error handling and resilience
+├── routing/                # Intelligent Document Routing  
+│   ├── routing_models.py   # Data models and ML predictor
+│   ├── feature_extractor.py # Fast feature extraction
+│   ├── threshold_manager.py # Adaptive threshold management
+│   └── learned_routing.py  # Main routing agent
+├── classifiers/            # Document Classification
+│   ├── document_classifier.py # ML-based classifier
+│   └── llm_classifier.py   # LLM-based classifier
+├── agents/                 # Orchestration Layer
+│   └── agent.py           # Supervisory agent
+└── utils/                 # Utilities & Tools
+    ├── training_bootstrap.py # Training data generation
+    └── visualizations.py   # Data visualization tools
+```
 
-Run the evaluation and visualization scripts:
+## Classification Categories
+
+The system classifies documents into 15 business categories:
+
+- **Administrative**: Letter, Memo, Form, Email
+- **Financial**: Invoice, Budget
+- **Technical**: Specification, Scientific Report, Scientific Publication
+- **Marketing**: Advertisement, News Article, Presentation
+- **Personal**: Resume, Handwritten
+- **Organizational**: File Folder, Questionnaire
+
+## Configuration
+
+### Environment Variables
+
+Configure via `.env` file (copy from `env_template.txt`):
 
 ```bash
-python model_evaluation.py
-python visualizations.py
-```
+# LLM Configuration
+GROQ_API_KEY=your_api_key_here
+LLM_MODEL=llama3-8b-8192
+MAX_TOKENS=1024
+TEMPERATURE=0.1
 
-This will:
-- Load trained models
-- Generate performance comparisons
-- Create comprehensive visualizations
-- Generate evaluation reports
-
-## Model Performance
-
-The system trains and evaluates multiple traditional ML models:
-- Random Forest
-- Gradient Boosting  
-- Logistic Regression
-- SVM
-- Naive Bayes
-
-Run the evaluation scripts to see actual performance metrics for your specific dataset.
-
-## File Structure
-
-```
-data-analysis/
-├── document_classifier.py              # Main classification system
-├── visualizations.py                   # Data and model visualization scripts
-├── model_evaluation.py                 # Model evaluation and analysis
-├── requirements.txt                    # Python dependencies
-├── README.md                           # This file
-├── models/                             # Saved trained models
-├── visualizations/                     # Generated charts and plots
-├── business_documents_dataset_cleaned.csv  # Main dataset (15,000 samples)
-└── ds/                                 # Additional datasets
+# Routing Parameters
+ML_THRESHOLD=0.6
+COST_BUDGET_PER_HOUR=1.0
+MAX_LLM_RATIO=0.3
+LEARNING_RATE=0.1
 ```
 
 ## API Usage
 
-After training, you can use the models programmatically:
+### Python API
 
 ```python
-from document_classifier import DocumentClassifier
-import joblib
+from src.classifiers import MLDocumentClassifier, LLMDocumentClassifier
+from src.agents import SupervisoryAgent
+from src.core import DocumentMetadata
 
-# Load trained model
-classifier = DocumentClassifier()
-classifier.best_model = joblib.load('models/best_model.pkl')
-classifier.vectorizer = joblib.load('models/vectorizer.pkl')
-classifier.label_encoder = joblib.load('models/label_encoder.pkl')
+# Initialize classifiers
+ml_classifier = MLDocumentClassifier()
+llm_classifier = LLMDocumentClassifier()
 
-# Predict document categories
-filenames = [
-            "invoice_2024_001.pdf",
-        "letter_client_a_2024.docx",
-        "scientific_report_research_2024.pdf",
-        "presentation_q1_results.pptx"
-]
+# Create supervisory agent with intelligent routing
+agent = SupervisoryAgent(ml_classifier, llm_classifier)
 
-predictions = classifier.predict(filenames)
-for filename, pred in zip(filenames, predictions):
-    print(f"{filename} -> {pred}")
+# Classify document
+metadata = DocumentMetadata(file_extension="pdf", sender_email="user@company.com")
+result = agent.classify_document("Document content here", metadata)
+
+print(f"Category: {result.category}")
+print(f"Confidence: {result.confidence}")
+print(f"Classifier used: {result.features_used.get('routing_decision')}")
 ```
 
-## Business Applications
+### Routing System
 
-This system is designed for enterprise use cases:
+The intelligent routing system:
 
-### Data Warehousing
-- Automatically categorize documents during ingestion
-- Improve search and retrieval capabilities
-- Enable better data governance
+1. **Extracts features** from document (word count, complexity, etc.)
+2. **Predicts ML confidence** using lightweight ML model
+3. **Routes to appropriate classifier**:
+   - **ML**: Simple documents, high confidence, cost-sensitive
+   - **LLM**: Complex documents, low confidence, accuracy-critical
+4. **Learns from feedback** to improve routing decisions
 
-### Document Management
-- Organize document repositories
-- Implement automated filing systems
-- Reduce manual classification effort
+## Training and Feedback
 
-### Compliance and Audit
-- Identify sensitive document types
-- Ensure proper document handling
-- Support regulatory requirements
+### Generate Training Data
 
-### Workflow Automation
-- Route documents to appropriate teams
-- Trigger automated processes based on document type
-- Improve business process efficiency
+```python
+# Generate training data comparing ML vs LLM performance
+python -m src.utils.training_bootstrap
+```
 
-## Technical Details
+This runs documents through both classifiers to learn optimal routing strategies.
 
-### Feature Engineering
+### Performance Monitoring
 
-The system extracts various features from filenames:
+```python
+from src.agents import SupervisoryAgent
 
-1. **Text Features**: TF-IDF vectorization of processed filenames
-2. **Pattern Features**: Detection of numbers, special characters, extensions
-3. **Business Keywords**: Category-specific keyword matching
-4. **Structural Features**: Length, word count, naming patterns
+agent = SupervisoryAgent(ml_classifier, llm_classifier)
 
-### Model Selection
+# Get system statistics  
+stats = agent.get_system_statistics()
+print(f"Total classifications: {stats['system']['total_classifications']}")
+print(f"Average confidence: {stats['ml_classifier']['avg_confidence']}")
+print(f"Routing accuracy: {stats['routing_agent']['routing_accuracy']}")
+```
 
-Multiple traditional ML models are trained and compared:
-- **Random Forest**: Robust, handles non-linear relationships
-- **Gradient Boosting**: High performance, good generalization
-- **Logistic Regression**: Interpretable, fast inference
-- **SVM**: Good for high-dimensional data
-- **Naive Bayes**: Fast, works well with text data
+## Advanced Features
 
-### Evaluation Metrics
+### Cost Management
 
-Comprehensive evaluation using:
-- Accuracy, Precision, Recall, F1-Score
-- Confusion matrices
-- Cross-validation
-- Learning curves
-- Feature importance analysis
+The system automatically manages costs by:
+- **Budget tracking**: Monitors hourly LLM usage costs
+- **Ratio limits**: Caps percentage of requests routed to LLM
+- **Adaptive thresholds**: Adjusts routing based on budget constraints
 
-## Customization
+### Performance Optimization
 
-### Adding New Categories
+- **Feature caching**: Fast document feature extraction (~2-3ms)
+- **Model reuse**: Efficient classifier initialization
+- **Batch processing**: Optimized for multiple document processing
+- **Resilience**: Automatic retry and fallback mechanisms
 
-To add new document categories:
+### Extensibility
 
-1. Update the `document_categories` dictionary in `document_classifier.py`
-2. Add category-specific keywords
-3. Retrain the models
+Add new classifiers by implementing the `DocumentClassifier` interface:
 
-### Custom Datasets
+```python
+from src.core.base_classifier import DocumentClassifier
 
-To use your own dataset:
+class CustomClassifier(DocumentClassifier):
+    def predict(self, content: str, metadata: DocumentMetadata) -> ClassificationResult:
+        # Implementation here
+        pass
+```
 
-1. Prepare a CSV file with `filename` and `label` columns
-2. Update the data loading code in `data_preparation.py`
-3. Ensure labels match the business categories
+## Monitoring and Debugging
 
-## Performance Optimization
+### System Statistics
 
-### For Large Datasets
-- Use batch processing for feature extraction
-- Implement parallel training for multiple models
-- Consider using sparse matrices for memory efficiency
+```bash
+python main.py --stats
+```
 
-### For Production Deployment
-- Use model serialization for fast loading
-- Implement caching for repeated predictions
-- Add logging and monitoring capabilities
+### Detailed Logging
+
+Configure logging level in `.env`:
+```bash
+LOG_LEVEL=DEBUG  # INFO, WARNING, ERROR
+```
+
+### Performance Analysis
+
+```python
+# View routing decisions and performance
+python -m src.utils.visualizations
+```
+
+## Deployment
+
+### Production Setup
+
+1. **Environment**: Set production environment variables
+2. **Models**: Ensure all ML models are trained and available
+3. **API Keys**: Configure LLM API access
+4. **Monitoring**: Set up logging and metrics collection
+5. **Scaling**: Consider load balancing for high-volume usage
+
+### Docker Deployment
+
+```dockerfile
+FROM python:3.11-slim
+COPY . /app
+WORKDIR /app
+RUN pip install -r requirements.txt
+CMD ["python", "main.py"]
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Memory Issues**: Reduce `max_features` in TF-IDF vectorizer
-2. **Slow Training**: Use smaller datasets for initial testing
-3. **Low Accuracy**: Check data quality and label consistency
+1. **LLM API Errors**: Check GROQ_API_KEY in `.env`
+2. **ML Models Missing**: Run training: `python src/classifiers/document_classifier.py`
+3. **Import Errors**: Ensure proper Python path and package structure
+4. **Slow Performance**: Check routing thresholds and system load
 
-### Getting Help
+### Debug Mode
 
-- Check the evaluation reports for model performance insights
-- Review feature importance analysis for data quality issues
-- Ensure proper data preprocessing
+```bash
+DEBUG=True python main.py sample_documents/invoice.txt --format detailed
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create feature branch (`git checkout -b feature/improvement`)
+3. Follow the modular architecture patterns
+4. Add tests for new functionality
+5. Update documentation
+6. Submit pull request
+
+## Architecture Benefits
+
+### Separation of Concerns
+- **Core**: Fundamental interfaces and utilities
+- **Routing**: Intelligent decision making
+- **Classifiers**: Specialized classification logic
+- **Agents**: High-level orchestration
+- **Utils**: Supporting tools and analysis
+
+### Scalability
+- **Modular design**: Easy to extend and modify
+- **Clean interfaces**: Well-defined component boundaries
+- **Configuration management**: Environment-specific settings
+- **Performance monitoring**: Real-time system insights
+
+### Maintainability
+- **Single responsibility**: Each module has one clear purpose
+- **Dependency injection**: Loose coupling between components
+- **Error handling**: Comprehensive resilience framework
+- **Documentation**: Clear code structure and comments
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Citation
-
-If you use this system in your research or business applications, please cite:
-
-```bibtex
-@article{business_document_classification_2024,
-  title={Business Document Classification Using Traditional Machine Learning},
-  author={Your Name},
-  journal={arXiv preprint},
-  year={2024}
-}
-```
-
-## Contact
-
-For questions, issues, or contributions, please open an issue on the repository or contact the maintainers. 
+MIT License - see LICENSE file for details.

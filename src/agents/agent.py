@@ -7,15 +7,11 @@ import time
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 
-from learned_routing import (
-    LearnedRoutingAgent,
-    RoutingDecision, 
-    RoutingExample,
-    DocumentFeatures
-)
-from base_classifier import DocumentClassifier, DocumentMetadata, ClassificationResult
-from training_bootstrap import TrainingDataBootstrap, FeedbackCollector
-from config_manager import get_config
+from ..routing.learned_routing import LearnedRoutingAgent
+from ..routing.routing_models import RoutingDecision, RoutingExample, DocumentFeatures
+from ..core.base_classifier import DocumentClassifier, DocumentMetadata, ClassificationResult
+from ..utils.training_bootstrap import TrainingDataBootstrap, FeedbackCollector
+from ..core.config_manager import get_config
 
 
 class SupervisoryAgent:

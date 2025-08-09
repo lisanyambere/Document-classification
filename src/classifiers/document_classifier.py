@@ -23,7 +23,7 @@ import warnings
 import time
 from typing import List, Tuple, Dict, Any
 
-from base_classifier import (
+from ..core.base_classifier import (
     DocumentClassifier as BaseDocumentClassifier, 
     ClassificationResult, 
     DocumentMetadata, 

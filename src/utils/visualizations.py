@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import warnings
 warnings.filterwarnings('ignore')
-from document_classifier import DocumentClassifier
+from ..classifiers.document_classifier import MLDocumentClassifier
 
 plt.style.use('seaborn-v0_8')
 sns.set_palette("husl")

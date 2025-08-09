@@ -33,10 +33,9 @@ try:
 except ImportError:
     HAS_DOCX = False
 
-from document_classifier import MLDocumentClassifier
-from llm_classifier import LLMDocumentClassifier
-from agent import SupervisoryAgent
-from base_classifier import DocumentMetadata, ClassificationResult
+from src.classifiers import MLDocumentClassifier, LLMDocumentClassifier
+from src.agents import SupervisoryAgent
+from src.core import DocumentMetadata, ClassificationResult
 
 
 class DocumentExtractor:

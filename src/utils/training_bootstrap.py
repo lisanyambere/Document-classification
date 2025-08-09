@@ -14,15 +14,11 @@ from pathlib import Path
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from learned_routing import (
-    RoutingExample, 
-    DocumentFeatures, 
-    FastFeatureExtractor,
-    RoutingDecision
-)
-from base_classifier import DocumentClassifier, DocumentMetadata, ClassificationResult
-from config_manager import get_config
-from resilience import resilient
+from ..routing.routing_models import RoutingExample, RoutingDecision
+from ..routing.feature_extractor import FastFeatureExtractor, DocumentFeatures
+from ..core.base_classifier import DocumentClassifier, DocumentMetadata, ClassificationResult
+from ..core.config_manager import get_config
+from ..core.resilience import resilient
 
 
 @dataclass
@@ -49,7 +45,7 @@ class TrainingDataBootstrap:
         self.feature_extractor = FastFeatureExtractor()
         
         config = get_config()
-        self.max_workers = min(config.system.max_workers, 4)  # Limit parallelism
+        self.max_workers = min(config.system.max_workers, 4)  
         
         self.logger = logging.getLogger(__name__)
     
@@ -66,7 +62,7 @@ class TrainingDataBootstrap:
         training_examples = []
         failed_count = 0
         
-        # Process in batches for memory management
+        # Process in batches 
         batch_size = 50
         
         for i in range(0, len(documents), batch_size):
@@ -102,7 +98,7 @@ class TrainingDataBootstrap:
             # Collect results
             for future in as_completed(futures):
                 try:
-                    example = future.result(timeout=30)  # 30 second timeout
+                    example = future.result(timeout=30)  
                     if example:
                         examples.append(example)
                 except Exception as e:
@@ -124,7 +120,6 @@ class TrainingDataBootstrap:
             features = self.feature_extractor.extract(content, metadata)
             
             # Determine which classifier would be better
-            # For bootstrap, we'll use a simple heuristic: higher confidence wins
             better_classifier = RoutingDecision.LLM if llm_result.confidence > ml_result.confidence else RoutingDecision.ML
             
             # Create training example
@@ -133,9 +128,9 @@ class TrainingDataBootstrap:
                 routing_decision=better_classifier,
                 ml_confidence=ml_result.confidence,
                 llm_confidence=llm_result.confidence,
-                ml_correct=ml_result.category == llm_result.category,  # Agreement proxy
-                llm_correct=ml_result.category == llm_result.category,  # Agreement proxy
-                actual_category=ml_result.category.value,  # Use ML as baseline
+                ml_correct=ml_result.category == llm_result.category,  
+                llm_correct=ml_result.category == llm_result.category,  
+                actual_category=ml_result.category.value,  
                 processing_time_ml=ml_result.processing_time_ms,
                 processing_time_llm=llm_result.processing_time_ms,
                 cost_ml=ml_result.cost_estimate or 0.001,
@@ -227,11 +222,10 @@ class FeedbackCollector:
         features = self.feature_extractor.extract(content, metadata)
         
         # Create feedback example
-        # User correction indicates current routing was suboptimal
         feedback = RoutingExample(
             features=features,
-            routing_decision=RoutingDecision.ML,  # Assume last was ML
-            ml_confidence=0.5,  # Will be learned
+            routing_decision=RoutingDecision.ML,  
+            ml_confidence=0.5,  
             ml_correct=predicted_category.lower() == correct_category.lower(),
             actual_category=correct_category,
             timestamp=time.time()
@@ -244,7 +238,7 @@ class FeedbackCollector:
         self._append_feedback_to_file({
             'type': 'user_correction',
             'user_id': user_id,
-            'content_hash': hash(content),  # Don't store actual content
+            'content_hash': hash(content),  
             'metadata': asdict(metadata) if metadata else {},
             'predicted_category': predicted_category,
             'correct_category': correct_category,
@@ -298,7 +292,7 @@ class FeedbackCollector:
         
         feedback = RoutingExample(
             features=features,
-            routing_decision=RoutingDecision.ML,  # For training purposes
+            routing_decision=RoutingDecision.ML,  
             ml_confidence=ml_result.confidence,
             llm_confidence=llm_result.confidence,
             ml_correct=ml_correct,
@@ -489,42 +483,65 @@ class GroundTruthManager:
 
 # Example usage and testing
 if __name__ == "__main__":
-    from test_phase1 import MockMLClassifier
+    from ..classifiers.document_classifier import MLDocumentClassifier
+    from ..classifiers.llm_classifier import LLMDocumentClassifier
     
-    class MockLLMClassifier(MockMLClassifier):
-        @property
-        def classifier_type(self) -> str:
-            return "LLM"
+    print("Initializing REAL classifiers...")
     
-    # Initialize components
-    ml_classifier = MockMLClassifier()
-    llm_classifier = MockLLMClassifier()
+    # Initialize real ML classifier
+    ml_classifier = MLDocumentClassifier()
+    if not ml_classifier.is_ready():
+        print("Error: ML classifier not ready!")
+        exit(1)
+    print("ML classifier ready!")
     
-    # Test bootstrap
+    # Initialize real LLM classifier  
+    llm_classifier = LLMDocumentClassifier()
+    if not llm_classifier.is_ready():
+        print("Error: LLM classifier not ready!")
+        exit(1)  
+    print("LLM classifier ready!")
+    
+    # Test bootstrap with REAL classifiers
     bootstrap = TrainingDataBootstrap(ml_classifier, llm_classifier)
     
-    # Sample documents
+    # Sample documents for training
     sample_docs = [
-        ("This is a technical report about machine learning algorithms.", 
+        ("TECHNICAL SPECIFICATION DOCUMENT\nVersion 2.1.0\nThis specification outlines the technical implementation of an advanced document classification pipeline.", 
          DocumentMetadata(sender_email="tech@company.com", file_extension="pdf")),
-        ("Invoice #123 for services rendered in January 2024.",
+        ("Invoice #2024-001\nCompany: ABC Consulting Services\nDate: January 15, 2024\nServices Rendered:\n- Software Development: $1500\nTotal: $1500",
          DocumentMetadata(sender_email="billing@company.com", file_extension="pdf")),
-        ("Dear John, Thank you for your inquiry about our products.",
+        ("Johnson & Associates\n123 Corporate Drive\nDear Mr. Wilson,\nThank you for your inquiry about our consulting services. We would be happy to discuss your requirements.",
          DocumentMetadata(sender_email="sales@company.com", file_extension="txt"))
     ]
     
-    # Generate training data
+    # Generate training data using REAL ML and LLM classifiers
+    print(f"\nGenerating training data with {len(sample_docs)} documents...")
+    print("This will run each document through BOTH ML and LLM to compare results...")
+    
     training_data = bootstrap.generate_training_data(sample_docs)
-    print(f"Generated {len(training_data)} training examples")
+    print(f"\nGenerated {len(training_data)} training examples:")
+    
+    for i, example in enumerate(training_data, 1):
+        print(f"\n  Example {i}:")
+        print(f"    Category: {example.actual_category}")
+        print(f"    Best route: {example.routing_decision.value}")
+        print(f"    ML confidence: {example.ml_confidence:.3f}")
+        print(f"    LLM confidence: {example.llm_confidence:.3f}")
+        print(f"    ML correct: {example.ml_correct}")
+        print(f"    LLM correct: {example.llm_correct}")
     
     # Test feedback collector
-    feedback_collector = FeedbackCollector("test_feedback.jsonl")
+    print(f"\nTesting feedback collection...")
+    feedback_collector = FeedbackCollector("real_training_feedback.jsonl")
     
-    # Add sample feedback
-    feedback_collector.add_user_correction(
-        sample_docs[0][0], sample_docs[0][1],
-        "letter", "scientific_report"
-    )
+    # Add real feedback from the generated examples
+    if training_data:
+        feedback_collector.add_user_correction(
+            sample_docs[0][0], sample_docs[0][1],
+            training_data[0].actual_category, "specification"
+        )
+        print("Added user correction feedback")
     
     # Get stats
     stats = feedback_collector.get_feedback_stats()
