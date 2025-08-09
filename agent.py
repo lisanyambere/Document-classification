@@ -19,16 +19,9 @@ from config_manager import get_config
 
 
 class SupervisoryAgent:
-    """Main supervisory agent that orchestrates intelligent document classification"""
     
+    # Initialize supervisory agent with ML and LLM classifiers
     def __init__(self, ml_classifier: DocumentClassifier, llm_classifier: DocumentClassifier):
-        """
-        Initialize supervisory agent with ML and LLM classifiers
-        
-        Args:
-            ml_classifier: Traditional ML document classifier
-            llm_classifier: LLM-based document classifier
-        """
         self.ml_classifier = ml_classifier
         self.llm_classifier = llm_classifier
         self.routing_agent = LearnedRoutingAgent(llm_classifier=llm_classifier)
@@ -47,17 +40,8 @@ class SupervisoryAgent:
         self.logger = logging.getLogger(__name__)
         self.logger.info("SupervisoryAgent initialized successfully")
     
+    # Classify document using intelligent routing
     def classify_document(self, content: str, metadata: DocumentMetadata = None) -> ClassificationResult:
-        """
-        Classify document using intelligent routing
-        
-        Args:
-            content: Document content to classify
-            metadata: Optional document metadata
-            
-        Returns:
-            ClassificationResult with category, confidence, and routing info
-        """
         start_time = time.time()
         
         try:
@@ -102,16 +86,8 @@ class SupervisoryAgent:
                 self.logger.error(f"Fallback classification also failed: {fallback_error}")
                 raise
     
+    # Classify multiple documents efficiently
     def classify_batch(self, documents: List[Tuple[str, DocumentMetadata]]) -> List[ClassificationResult]:
-        """
-        Classify multiple documents efficiently
-        
-        Args:
-            documents: List of (content, metadata) tuples
-            
-        Returns:
-            List of ClassificationResult objects
-        """
         results = []
         for content, metadata in documents:
             try:
@@ -124,19 +100,10 @@ class SupervisoryAgent:
         self.logger.info(f"Batch classification completed: {len(results)}/{len(documents)} successful")
         return results
     
+    # Add user correction for continuous learning
     def add_user_correction(self, content: str, metadata: DocumentMetadata,
                           predicted_category: str, correct_category: str,
                           user_id: str = "anonymous"):
-        """
-        Add user correction for continuous learning
-        
-        Args:
-            content: Original document content
-            metadata: Document metadata
-            predicted_category: What the system predicted
-            correct_category: What the user says is correct
-            user_id: User who provided the correction
-        """
         # Add to feedback collector
         feedback = self.feedback_collector.add_user_correction(
             content, metadata, predicted_category, correct_category, user_id
@@ -147,17 +114,8 @@ class SupervisoryAgent:
         
         self.logger.info(f"User correction added: {predicted_category} -> {correct_category}")
     
+    # Run both classifiers for comparison and training data generation
     def compare_classifiers(self, content: str, metadata: DocumentMetadata = None) -> Dict[str, Any]:
-        """
-        Run both classifiers for comparison and training data generation
-        
-        Args:
-            content: Document content
-            metadata: Document metadata
-            
-        Returns:
-            Dictionary with comparison results
-        """
         start_time = time.time()
         
         try:
@@ -199,18 +157,9 @@ class SupervisoryAgent:
             self.logger.error(f"Classifier comparison failed: {e}")
             return {'error': str(e)}
     
+    # Generate initial training data by comparing classifiers
     def bootstrap_training_data(self, documents: List[Tuple[str, DocumentMetadata]], 
                               sample_size: int = 100) -> List[Dict[str, Any]]:
-        """
-        Generate initial training data by comparing classifiers
-        
-        Args:
-            documents: List of (content, metadata) tuples
-            sample_size: Maximum number of documents to process
-            
-        Returns:
-            List of comparison results for training
-        """
         self.logger.info(f"Bootstrapping training data with {min(len(documents), sample_size)} documents")
         
         bootstrap_data = []
@@ -236,13 +185,8 @@ class SupervisoryAgent:
         self.logger.info(f"Bootstrap completed: {len(bootstrap_data)} successful comparisons")
         return bootstrap_data
     
+    # Get comprehensive system performance statistics
     def get_system_statistics(self) -> Dict[str, Any]:
-        """
-        Get comprehensive system performance statistics
-        
-        Returns:
-            Dictionary with system stats
-        """
         # Routing agent stats
         routing_stats = self.routing_agent.get_performance_stats()
         
@@ -286,23 +230,13 @@ class SupervisoryAgent:
             }
         }
     
+    # Update system load for adaptive routing
     def update_system_load(self, load: float):
-        """
-        Update system load for adaptive routing
-        
-        Args:
-            load: System load between 0.0 and 1.0
-        """
         self.system_load = max(0.0, min(1.0, load))
         self.logger.debug(f"System load updated to {self.system_load:.2f}")
     
+    # Save all learned models and data
     def save_models(self, directory: str):
-        """
-        Save all learned models and data
-        
-        Args:
-            directory: Directory to save models to
-        """
         import os
         os.makedirs(directory, exist_ok=True)
         
@@ -330,13 +264,8 @@ class SupervisoryAgent:
         
         self.logger.info(f"All models and data saved to {directory}")
     
+    # Load previously saved models and data
     def load_models(self, directory: str):
-        """
-        Load previously saved models and data
-        
-        Args:
-            directory: Directory to load models from
-        """
         import os
         
         # Load routing agent models
@@ -358,10 +287,10 @@ class SupervisoryAgent:
         else:
             self.logger.warning(f"Directory {directory} does not exist")
     
+    # Record classification for analysis and learning
     def _record_classification(self, content: str, metadata: DocumentMetadata,
                              routing_decision: RoutingDecision, predicted_confidence: float,
                              result: ClassificationResult, total_time_ms: float):
-        """Record classification for analysis and learning"""
         
         # Extract features for feedback
         features = self.routing_agent.feature_extractor.extract(content, metadata)
