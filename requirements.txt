@@ -11,4 +11,6 @@ langchain
 langchain-community
 requests
 python-dotenv
-lightgbm 
+lightgbm
+PyPDF2
+python-docx 

@@ -1,0 +1,24 @@
+Invoice #2024-001
+
+Company: ABC Consulting Services
+Date: January 15, 2024
+Due Date: February 14, 2024
+
+Bill To:
+XYZ Corporation
+123 Business St
+City, State 12345
+
+Services Rendered:
+- Software Development Consultation: 40 hours @ $150/hour = $6,000
+- System Architecture Review: 8 hours @ $200/hour = $1,600
+- Documentation and Training: 12 hours @ $100/hour = $1,200
+
+Subtotal: $8,800
+Tax (8.5%): $748
+Total Amount Due: $9,548
+
+Payment Terms: Net 30 days
+Payment Methods: Check, Wire Transfer, ACH
+
+Thank you for your business!
