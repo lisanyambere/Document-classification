@@ -61,7 +61,6 @@ class ClassificationResult:
     tokens_used: Optional[int] = None
 
 class GroqAPI(LLM):
-    """Custom LangChain LLM wrapper for Groq API"""
     
     api_key: str
     model_name: str
@@ -91,12 +90,13 @@ class GroqAPI(LLM):
             base_url=base_url
         )
         
+    # Return LLM type identifier
     @property
     def _llm_type(self) -> str:
         return "groq"
     
+    # Quick completion call optimized for routing decisions
     def quick_completion(self, prompt: str, max_tokens: int = 150) -> str:
-        """Quick completion call optimized for routing decisions"""
         try:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
@@ -121,6 +121,7 @@ class GroqAPI(LLM):
             logger.error(f"Quick completion failed: {e}")
             return "ROUTE: ML"
     
+    # Make API call to Groq
     def _call(
         self,
         prompt: str,
@@ -128,7 +129,6 @@ class GroqAPI(LLM):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
-        """Make API call to Groq"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -160,8 +160,8 @@ class GroqAPI(LLM):
 class DocumentCategoryParser(BaseOutputParser):
     """Parse LLM output to extract category and confidence"""
     
+    # Parse the LLM response to extract classification results
     def parse(self, text: str) -> Dict[str, Any]:
-        """Parse the LLM response to extract classification results"""
         try:
             # Look for JSON-like structure in the response
             import re
@@ -212,7 +212,6 @@ class DocumentCategoryParser(BaseOutputParser):
             }
 
 class LLMDocumentClassifier(BaseDocumentClassifier):
-    """LLM-based document classifier using Groq API"""
     
     def __init__(self, api_key: str = None, model_name: str = None):
         # Get configuration from environment
@@ -284,8 +283,8 @@ Response format:
         # Performance tracking
         self.classification_history = []
         
+    # Extract a sample of the document for LLM processing
     def _sample_document(self, document_content: str) -> str:
-        """Extract a sample of the document for LLM processing"""
         # Remove extra whitespace and normalize
         content = ' '.join(document_content.split())
         
@@ -306,8 +305,8 @@ Response format:
         
         return sample
     
+    # Classify a document using the LLM
     def classify_document(self, document_content: str, metadata: Dict[str, Any] = None) -> ClassificationResult:
-        """Classify a document using the LLM"""
         start_time = time.time()
         
         try:
@@ -371,8 +370,8 @@ Response format:
                 processing_time_ms=(time.time() - start_time) * 1000
             )
     
+    # Get performance statistics
     def get_performance_stats(self) -> Dict[str, Any]:
-        """Get performance statistics"""
         if not self.classification_history:
             return {}
         
@@ -400,21 +399,21 @@ Response format:
             }
         }
     
+    # Save classification history to file
     def save_classification_history(self, filepath: str):
-        """Save classification history to file"""
         import pickle
         with open(filepath, 'wb') as f:
             pickle.dump(self.classification_history, f)
     
+    # Load classification history from file
     def load_classification_history(self, filepath: str):
-        """Load classification history from file"""
         import pickle
         with open(filepath, 'rb') as f:
             self.classification_history = pickle.load(f)
     
     # Interface methods for BaseDocumentClassifier
+    # Predict document category using the new interface
     def predict(self, content: str, metadata: DocumentMetadata = None) -> ClassificationResult:
-        """Predict document category using the new interface"""
         if not self.is_ready():
             raise ClassifierNotReadyError("LLM classifier not configured properly")
         
@@ -427,12 +426,12 @@ Response format:
         # Use existing classify_document method
         return self.classify_document(content, metadata_dict)
     
+    # Predict multiple documents efficiently
     def predict_batch(self, documents: List[Tuple[str, DocumentMetadata]]) -> List[ClassificationResult]:
-        """Predict multiple documents efficiently"""
         return [self.predict(content, metadata) for content, metadata in documents]
     
+    # Get current performance statistics
     def get_performance_metrics(self) -> Dict[str, float]:
-        """Get current performance statistics"""
         stats = self.get_performance_stats()
         
         # Convert to match interface
@@ -443,19 +442,19 @@ Response format:
             'model_name': stats.get('config', {}).get('model_name', 'unknown')
         }
     
+    # Check if classifier is ready to make predictions
     def is_ready(self) -> bool:
-        """Check if classifier is ready to make predictions"""
         return (self.api_key is not None and 
                 self.model_name is not None and
                 self.llm is not None)
     
+    # Return classifier type identifier
     @property
     def classifier_type(self) -> str:
-        """Return classifier type identifier"""
         return "LLM"
     
+    # Quick LLM call for routing decisions (optimized for speed)
     def _quick_routing_decision(self, routing_prompt: str, metadata: DocumentMetadata) -> str:
-        """Quick LLM call for routing decisions (optimized for speed)"""
         try:
             # Use a shorter, faster prompt for routing
             response = self.llm.quick_completion(routing_prompt, max_tokens=150)
@@ -464,9 +463,8 @@ Response format:
             logger.error(f"Quick routing decision failed: {e}")
             return "ROUTE: ML"  # Conservative fallback
     
-    # Legacy method for backwards compatibility
+    # Legacy method for backwards compatibility - use classify_document instead
     def classify_document_legacy(self, document_content: str, metadata: Dict[str, Any] = None) -> ClassificationResult:
-        """Legacy method - use classify_document instead"""
         return self.classify_document(document_content, metadata)
 
 # Example usage and testing
