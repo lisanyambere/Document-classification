@@ -60,7 +60,7 @@ def run_model_evaluation_and_visualize():
     """Run the document classifier and create model evaluation visualizations"""
     
     # Initialize and run the classifier
-    classifier = DocumentClassifier()
+    classifier = MLDocumentClassifier()
     
     # Prepare data
     data_path = "business_documents_dataset_cleaned.csv"
