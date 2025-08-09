@@ -87,6 +87,7 @@ class MLDocumentClassifier(BaseDocumentClassifier):
             'memo': ['memo', 'memorandum', 'internal_memo', 'business_memo']
         }
     
+    # Clean and preprocess filename for feature extraction
     def preprocess_filename(self, filename):
         # Remove file extension
         name = os.path.splitext(filename)[0]
@@ -106,8 +107,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return name
     
+    # Extract various features from filenames
     def extract_features(self, filenames):
-        """Extract various features from filenames"""
         features = []
         
         for filename in tqdm(filenames, desc="Extracting features"):
@@ -140,8 +141,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return pd.DataFrame(features)
     
+    # Prepare the dataset for training
     def prepare_data(self, data_path):
-        """Prepare the dataset for training"""
         df = pd.read_csv(data_path)
         features_df = self.extract_features(df['filename'])
         
@@ -153,8 +154,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return df_combined
     
+    # Create text-based features using TF-IDF
     def create_text_features(self, df):
-        """Create text-based features using TF-IDF"""
         
         # TF-IDF vectorization
         self.vectorizer = TfidfVectorizer(
@@ -175,8 +176,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return text_features_df
     
-    def train_models(self, X_train, y_train):
-        """Train multiple traditional ML models"""        
+    # Train multiple traditional ML models
+    def train_models(self, X_train, y_train):        
         
         # Define models
         models = {
@@ -196,8 +197,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
             except Exception as e:
                 print(f"{name} failed: {str(e)}")
     
-    def evaluate_models(self, X_test, y_test):
-        """Evaluate all trained models"""        
+    # Evaluate all trained models
+    def evaluate_models(self, X_test, y_test):        
         results = {}
         
         for name, model in self.models.items():
@@ -217,8 +218,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return results
     
+    # Detailed evaluation of a specific model
     def detailed_evaluation(self, X_test, y_test, model_name=None):
-        """Detailed evaluation of a specific model"""
         if model_name is None:
             model_name = self.best_model_name
         
@@ -246,8 +247,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         plt.savefig(f'confusion_matrix_{model_name.replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
         plt.show()
     
+    # Save trained models
     def save_models(self, output_dir='models'):
-        """Save trained models"""
         os.makedirs(output_dir, exist_ok=True)
         
         # Save best model
@@ -261,8 +262,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         print(f"Models saved to {output_dir}/")
     
+    # Load saved models
     def load_models(self, model_dir='models'):
-        """Load saved models"""
         try:
             if os.path.exists(os.path.join(model_dir, 'best_model.pkl')):
                 self.best_model = joblib.load(os.path.join(model_dir, 'best_model.pkl'))
@@ -275,8 +276,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         except Exception as e:
             print(f"Failed to load models: {e}")
     
+    # Predict categories for new filenames
     def predict(self, filenames):
-        """Predict categories for new filenames"""
         if self.best_model is None:
             raise ValueError("No trained model available. Please train the model first.")
         
@@ -301,9 +302,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return predicted_labels
     
-    # Interface methods for BaseDocumentClassifier
+    # Interface methods for BaseDocumentClassifier - predict document category using the new interface
     def predict(self, content: str, metadata: DocumentMetadata = None) -> ClassificationResult:
-        """Predict document category using the new interface"""
         start_time = time.time()
         
         if not self.is_ready():
@@ -364,12 +364,12 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         except Exception as e:
             raise ClassificationTimeout(f"ML classification failed: {str(e)}")
     
+    # Predict multiple documents efficiently
     def predict_batch(self, documents: List[Tuple[str, DocumentMetadata]]) -> List[ClassificationResult]:
-        """Predict multiple documents efficiently"""
         return [self.predict(content, metadata) for content, metadata in documents]
     
+    # Get current performance statistics
     def get_performance_metrics(self) -> Dict[str, float]:
-        """Get current performance statistics"""
         if not self.prediction_history:
             return {}
         
@@ -386,21 +386,20 @@ class MLDocumentClassifier(BaseDocumentClassifier):
             'model_name': self.best_model_name or 'none'
         }
     
+    # Check if classifier is ready to make predictions
     def is_ready(self) -> bool:
-        """Check if classifier is ready to make predictions"""
         return (self.best_model is not None and 
                 self.vectorizer is not None and 
                 self.label_encoder is not None and
                 self.is_trained)
     
+    # Return classifier type identifier
     @property
     def classifier_type(self) -> str:
-        """Return classifier type identifier"""
         return "ML"
     
-    # Legacy method for backwards compatibility
+    # Legacy method for backwards compatibility - predict categories for filenames
     def predict_filenames(self, filenames):
-        """Legacy method - predict categories for filenames"""
         if self.best_model is None:
             raise ValueError("No trained model available. Please train the model first.")
         
@@ -425,8 +424,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
         
         return predicted_labels
     
+    # Analyze feature importance for tree-based models
     def analyze_feature_importance(self, model_name=None):
-        """Analyze feature importance for tree-based models"""
         if model_name is None:
             model_name = self.best_model_name
         
@@ -460,8 +459,8 @@ class MLDocumentClassifier(BaseDocumentClassifier):
             print(f"{model_name} doesn't support feature importance analysis")
             return None
 
+# Main execution function
 def main():
-    """Main execution function"""
     # Initialize classifier
     classifier = MLDocumentClassifier()
     
